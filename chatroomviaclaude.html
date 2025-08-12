@@ -350,14 +350,15 @@
     </div>
 
     <script>
-        // Firebase Configuration - Replace with your actual Firebase project config
+        // Firebase Configuration
         const firebaseConfig = {
-            apiKey: "your-api-key-here",
-            authDomain: "your-project-id.firebaseapp.com",
-            projectId: "your-project-id",
-            storageBucket: "your-project-id.appspot.com",
-            messagingSenderId: "your-sender-id",
-            appId: "your-app-id"
+            apiKey: "AIzaSyC-O5QvKyybm1V1LDkE5b9bOvuOIdUoJNU",
+            authDomain: "chatroomviaclaude.firebaseapp.com",
+            projectId: "chatroomviaclaude",
+            storageBucket: "chatroomviaclaude.firebasestorage.app",
+            messagingSenderId: "864252617862",
+            appId: "1:864252617862:web:0b484043e67bd1eb115d07",
+            measurementId: "G-STZ3ST5W8J"
         };
 
         // Check if Firebase is properly configured
@@ -368,11 +369,17 @@
         let messages = [];
 
         if (isConfigured) {
-            // Initialize Firebase
-            firebase.initializeApp(firebaseConfig);
-            auth = firebase.auth();
-            db = firebase.firestore();
-            console.log('✅ Firebase initialized successfully');
+            try {
+                // Initialize Firebase
+                firebase.initializeApp(firebaseConfig);
+                auth = firebase.auth();
+                db = firebase.firestore();
+                console.log('✅ Firebase initialized successfully');
+                console.log('🌐 Current domain:', window.location.hostname);
+                console.log('📝 Make sure this domain is added to Firebase Auth authorized domains');
+            } catch (error) {
+                console.error('❌ Firebase initialization failed:', error);
+            }
         } else {
             console.error('❌ Firebase not configured! Please add your Firebase configuration.');
             console.log('📋 Setup steps:');
@@ -402,17 +409,26 @@
             }
 
             try {
+                console.log('🔄 Attempting Google sign-in...');
                 const provider = new firebase.auth.GoogleAuthProvider();
                 const result = await auth.signInWithPopup(provider);
                 currentUser = result.user;
+                console.log('✅ Sign-in successful:', currentUser.displayName);
                 showChatScreen();
                 loadMessages();
             } catch (error) {
-                console.error('Sign-in error:', error);
+                console.error('❌ Sign-in error:', error);
+                console.error('Error code:', error.code);
+                console.error('Error message:', error.message);
+                
                 if (error.code === 'auth/unauthorized-domain') {
-                    alert('This domain is not authorized. Please add it to your Firebase project\'s authorized domains.');
+                    alert(`❌ Unauthorized Domain Error!\n\nThis domain (${window.location.hostname}) is not authorized for OAuth operations.\n\nTo fix this:\n1. Go to Firebase Console\n2. Authentication → Settings → Authorized domains\n3. Add: ${window.location.hostname}\n4. Try signing in again`);
+                } else if (error.code === 'auth/popup-blocked') {
+                    alert('❌ Popup blocked! Please allow popups for this site and try again.');
+                } else if (error.code === 'auth/popup-closed-by-user') {
+                    alert('❌ Sign-in cancelled. Please try again.');
                 } else {
-                    alert('Sign-in failed. Please try again.');
+                    alert(`❌ Sign-in failed: ${error.message}\n\nCheck the console for more details.`);
                 }
             }
         }
