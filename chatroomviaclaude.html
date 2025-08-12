@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Room</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-auth-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-firestore-compat.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+            height: 90vh;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            margin: 20px;
+        }
+
+        .auth-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .auth-screen h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2.5rem;
+            font-weight: 300;
+        }
+
+        .auth-screen p {
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 1.1rem;
+        }
+
+        .google-btn {
+            background: #4285f4;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 50px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .google-btn:hover {
+            background: #357ae8;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(66, 133, 244, 0.3);
+        }
+
+        .chat-screen {
+            display: none;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .header {
+            padding: 20px 30px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.8);
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 1.5rem;
+            font-weight: 500;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .user-name {
+            color: #555;
+            font-size: 0.9rem;
+        }
+
+        .logout-btn {
+            background: none;
+            border: 1px solid #ddd;
+            color: #666;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.8rem;
+        }
+
+        .logout-btn:hover {
+            background: #f5f5f5;
+        }
+
+        .messages {
+            flex: 1;
+            padding: 20px 30px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .message {
+            display: flex;
+            gap: 12px;
+            max-width: 80%;
+            animation: slideIn 0.3s ease;
+        }
+
+        .message.own {
+            align-self: flex-end;
+            flex-direction: row-reverse;
+        }
+
+        .message-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            object-fit: cover;
+            flex-shrink: 0;
+        }
+
+        .message-content {
+            background: #f8f9fa;
+            padding: 12px 16px;
+            border-radius: 18px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        .message.own .message-content {
+            background: #007bff;
+            color: white;
+        }
+
+        .message-author {
+            font-weight: 600;
+            font-size: 0.8rem;
+            color: #666;
+            margin-bottom: 4px;
+        }
+
+        .message.own .message-author {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .message-text {
+            word-wrap: break-word;
+            line-height: 1.4;
+        }
+
+        .message-time {
+            font-size: 0.7rem;
+            color: #999;
+            margin-top: 4px;
+        }
+
+        .message.own .message-time {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .input-area {
+            padding: 20px 30px;
+            border-top: 1px solid #e0e0e0;
+            background: rgba(255, 255, 255, 0.8);
+        }
+
+        .input-form {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .message-input {
+            flex: 1;
+            border: 1px solid #ddd;
+            padding: 12px 18px;
+            border-radius: 25px;
+            outline: none;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .message-input:focus {
+            border-color: #007bff;
+        }
+
+        .send-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .send-btn:hover:not(:disabled) {
+            background: #0056b3;
+            transform: translateY(-1px);
+        }
+
+        .send-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            margin-top: 40px;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                height: 100vh;
+                margin: 0;
+                border-radius: 0;
+            }
+
+            .header, .input-area, .messages {
+                padding-left: 20px;
+                padding-right: 20px;
+            }
+
+            .auth-screen {
+                padding: 20px;
+            }
+
+            .auth-screen h1 {
+                font-size: 2rem;
+            }
+
+            .message {
+                max-width: 90%;
+            }
+
+            .user-info {
+                gap: 8px;
+            }
+
+            .user-name {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Authentication Screen -->
+        <div id="authScreen" class="auth-screen">
+            <h1>💬 Chat Room</h1>
+            <p>Connect with others in real-time</p>
+            <button id="googleSignIn" class="google-btn">
+                <svg width="18" height="18" viewBox="0 0 24 24">
+                    <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                    <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                </svg>
+                Sign in with Google
+            </button>
+        </div>
+
+        <!-- Chat Screen -->
+        <div id="chatScreen" class="chat-screen">
+            <div class="header">
+                <h1>Chat Room</h1>
+                <div class="user-info">
+                    <img id="userAvatar" class="user-avatar" src="" alt="">
+                    <span id="userName" class="user-name"></span>
+                    <button id="logoutBtn" class="logout-btn">Sign Out</button>
+                </div>
+            </div>
+
+            <div id="messages" class="messages">
+                <div class="empty-state">Welcome to the chat room! Start a conversation...</div>
+            </div>
+
+            <div class="input-area">
+                <form id="messageForm" class="input-form">
+                    <input 
+                        type="text" 
+                        id="messageInput" 
+                        class="message-input" 
+                        placeholder="Type your message..." 
+                        required
+                        maxlength="500"
+                    >
+                    <button type="submit" id="sendBtn" class="send-btn">Send</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase Configuration - Replace with your actual Firebase project config
+const firebaseConfig = {
+
+  apiKey: "AIzaSyC-O5QvKyybm1V1LDkE5b9bOvuOIdUoJNU",
+
+  authDomain: "chatroomviaclaude.firebaseapp.com",
+
+  projectId: "chatroomviaclaude",
+
+  storageBucket: "chatroomviaclaude.firebasestorage.app",
+
+  messagingSenderId: "864252617862",
+
+  appId: "1:864252617862:web:0b484043e67bd1eb115d07",
+
+  measurementId: "G-STZ3ST5W8J"
+
+};
+
+
+        // Check if Firebase is properly configured
+        const isConfigured = !firebaseConfig.apiKey.includes('your-');
+        
+        let auth, db;
+        let currentUser = null;
+        let messages = [];
+
+        if (isConfigured) {
+            // Initialize Firebase
+            firebase.initializeApp(firebaseConfig);
+            auth = firebase.auth();
+            db = firebase.firestore();
+            console.log('✅ Firebase initialized successfully');
+        } else {
+            console.error('❌ Firebase not configured! Please add your Firebase configuration.');
+            console.log('📋 Setup steps:');
+            console.log('1. Go to https://console.firebase.google.com');
+            console.log('2. Create a new project or select existing one');
+            console.log('3. Enable Authentication (Google) and Firestore');
+            console.log('4. Copy your config and replace the placeholder values');
+        }
+
+        // DOM Elements
+        const authScreen = document.getElementById('authScreen');
+        const chatScreen = document.getElementById('chatScreen');
+        const googleSignInBtn = document.getElementById('googleSignIn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const userAvatar = document.getElementById('userAvatar');
+        const userName = document.getElementById('userName');
+        const messagesContainer = document.getElementById('messages');
+        const messageForm = document.getElementById('messageForm');
+        const messageInput = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
+
+        // Authentication functions
+        async function signInWithGoogle() {
+            if (!isConfigured) {
+                alert('Firebase is not configured. Please check the console for setup instructions.');
+                return;
+            }
+
+            try {
+                const provider = new firebase.auth.GoogleAuthProvider();
+                const result = await auth.signInWithPopup(provider);
+                currentUser = result.user;
+                showChatScreen();
+                loadMessages();
+            } catch (error) {
+                console.error('Sign-in error:', error);
+                if (error.code === 'auth/unauthorized-domain') {
+                    alert('This domain is not authorized. Please add it to your Firebase project\'s authorized domains.');
+                } else {
+                    alert('Sign-in failed. Please try again.');
+                }
+            }
+        }
+
+        function signOut() {
+            if (!isConfigured) return;
+            
+            auth.signOut().then(() => {
+                currentUser = null;
+                showAuthScreen();
+            }).catch((error) => {
+                console.error('Sign-out error:', error);
+            });
+        }
+
+        // UI functions
+        function showAuthScreen() {
+            authScreen.style.display = 'flex';
+            chatScreen.style.display = 'none';
+        }
+
+        function showChatScreen() {
+            authScreen.style.display = 'none';
+            chatScreen.style.display = 'flex';
+            
+            // Update user info in header
+            userAvatar.src = currentUser.photoURL || 'https://via.placeholder.com/40/666/ffffff?text=?';
+            userName.textContent = currentUser.displayName || 'User';
+            
+            messageInput.focus();
+        }
+
+        // Message functions
+        function formatTime(date) {
+            const now = new Date();
+            const messageDate = new Date(date);
+            const diffInHours = Math.abs(now - messageDate) / 36e5;
+
+            if (diffInHours < 1) {
+                return messageDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            } else if (diffInHours < 24) {
+                return messageDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            } else {
+                return messageDate.toLocaleDateString() + ' ' + messageDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
+        }
+
+        function createMessageElement(message) {
+            const isOwnMessage = message.authorId === currentUser.uid;
+            
+            const messageEl = document.createElement('div');
+            messageEl.className = `message ${isOwnMessage ? 'own' : ''}`;
+            messageEl.innerHTML = `
+                <img class="message-avatar" src="${message.authorPhoto}" alt="${message.authorName}">
+                <div class="message-content">
+                    ${!isOwnMessage ? `<div class="message-author">${message.authorName}</div>` : ''}
+                    <div class="message-text">${escapeHtml(message.text)}</div>
+                    <div class="message-time">${formatTime(message.timestamp?.toDate ? message.timestamp.toDate() : message.timestamp)}</div>
+                </div>
+            `;
+            
+            return messageEl;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function renderMessages() {
+            messagesContainer.innerHTML = '';
+            
+            if (messages.length === 0) {
+                messagesContainer.innerHTML = '<div class="empty-state">Welcome to the chat room! Start a conversation...</div>';
+                return;
+            }
+            
+            messages.forEach(message => {
+                const messageEl = createMessageElement(message);
+                messagesContainer.appendChild(messageEl);
+            });
+            
+            // Scroll to bottom
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        async function loadMessages() {
+            if (!isConfigured) {
+                messagesContainer.innerHTML = '<div class="empty-state">⚠️ Firebase not configured. Please check console for setup instructions.</div>';
+                return;
+            }
+
+            try {
+                const querySnapshot = await db.collection('messages')
+                    .orderBy('timestamp')
+                    .limit(50)
+                    .get();
+                
+                messages = querySnapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+                
+                renderMessages();
+            } catch (error) {
+                console.error('Error loading messages:', error);
+                messagesContainer.innerHTML = '<div class="empty-state">❌ Error loading messages. Check your Firebase configuration.</div>';
+            }
+        }
+
+        async function sendMessage(text) {
+            if (!text.trim() || !currentUser || !isConfigured) return;
+
+            const message = {
+                text: text.trim(),
+                authorName: currentUser.displayName || 'User',
+                authorId: currentUser.uid,
+                authorPhoto: currentUser.photoURL || 'https://via.placeholder.com/40/666/ffffff?text=?',
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            try {
+                await db.collection('messages').add(message);
+            } catch (error) {
+                console.error('Error sending message:', error);
+                alert('Failed to send message. Please check your Firebase configuration.');
+            }
+        }
+
+        // Event listeners
+        googleSignInBtn.addEventListener('click', signInWithGoogle);
+        logoutBtn.addEventListener('click', signOut);
+
+        messageForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const text = messageInput.value.trim();
+            
+            if (!text) return;
+            
+            sendBtn.disabled = true;
+            await sendMessage(text);
+            messageInput.value = '';
+            messageInput.focus();
+            sendBtn.disabled = false;
+        });
+
+        messageInput.addEventListener('input', () => {
+            sendBtn.disabled = !messageInput.value.trim();
+        });
+
+        // Initialize app
+        function initApp() {
+            if (!isConfigured) {
+                // Show auth screen but disable sign-in
+                showAuthScreen();
+                googleSignInBtn.disabled = true;
+                googleSignInBtn.textContent = 'Firebase Not Configured';
+                googleSignInBtn.style.background = '#ccc';
+                googleSignInBtn.style.cursor = 'not-allowed';
+                return;
+            }
+
+            // Listen to auth state changes
+            auth.onAuthStateChanged((user) => {
+                if (user) {
+                    currentUser = user;
+                    showChatScreen();
+                    loadMessages();
+                } else {
+                    currentUser = null;
+                    showAuthScreen();
+                }
+            });
+
+            // Listen to new messages in real-time
+            db.collection('messages')
+                .orderBy('timestamp')
+                .onSnapshot((snapshot) => {
+                    messages = snapshot.docs.map(doc => ({
+                        id: doc.id,
+                        ...doc.data()
+                    }));
+                    renderMessages();
+                }, (error) => {
+                    console.error('Error listening to messages:', error);
+                });
+        }
+
+        // Start the app
+        initApp();
+
+        // Handle mobile viewport
+        function updateViewportHeight() {
+            const vh = window.innerHeight * 0.01;
+            document.documentElement.style.setProperty('--vh', `${vh}px`);
+        }
+
+        window.addEventListener('resize', updateViewportHeight);
+        updateViewportHeight();
+    </script>
+</body>
+</html>
